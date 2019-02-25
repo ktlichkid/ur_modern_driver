@@ -13,6 +13,7 @@
   <arg name="max_payload" />
   <arg name="prefix" default="" />
   <arg name="use_ros_control" default="false"/>
+  <arg name="use_force_controller" default="false"/>
   <arg name="use_lowbandwidth_trajectory_follower" default="false"/>
   <arg name="time_interval" default="0.008"/>
   <arg name="servoj_time" default="0.008" />
@@ -20,6 +21,9 @@
   <arg name="max_waiting_time" default="2.0" />
   <arg name="servoj_gain" default="100." />
   <arg name="servoj_lookahead_time" default="1." />
+  <arg name="force_max_linear_speed" default="0.15" />
+  <arg name="force_max_rotational_speed" default="1.0471975511965976" />
+  <arg name="force_watchdog_timeout" default="1." />
   <arg name="max_joint_difference" default="0.01" />
   <arg name="base_frame" default="$(arg prefix)base" />
   <arg name="tool_frame" default="$(arg prefix)tool0_controller" />
@@ -39,6 +43,7 @@
     <param name="prefix" type="str" value="$(arg prefix)" />
     <param name="robot_ip_address" type="str" value="$(arg robot_ip)" />
     <param name="use_ros_control" type="bool" value="$(arg use_ros_control)"/>
+    <param name="use_force_controller" type="bool" value="$(arg use_force_controller)"/>
     <param name="use_lowbandwidth_trajectory_follower" type="bool" value="$(arg use_lowbandwidth_trajectory_follower)"/>
     <param name="min_payload" type="double" value="$(arg min_payload)" />
     <param name="max_payload" type="double" value="$(arg max_payload)" />

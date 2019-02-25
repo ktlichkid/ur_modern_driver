@@ -3,11 +3,6 @@ project(ur_modern_driver)
 
 add_definitions( -DROS_BUILD )
 
-if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-  message("${PROJECT_NAME}: You did not request a specific build type: selecting 'RelWithDebInfo'.")
-  set(CMAKE_BUILD_TYPE RelWithDebInfo)
-endif()
-
 find_package(catkin REQUIRED
   COMPONENTS
     actionlib
@@ -78,6 +73,7 @@ target_link_libraries(ur_hardware_interface ${catkin_LIBRARIES})
 
 
 set(${PROJECT_NAME}_SOURCES
+    src/ros/force_controller.cpp
     src/ros/action_server.cpp
     src/ros/lowbandwidth_trajectory_follower.cpp
     src/ros/mb_publisher.cpp
@@ -106,7 +102,6 @@ install(DIRECTORY config launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 install(TARGETS ur_driver ur_hardware_interface
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

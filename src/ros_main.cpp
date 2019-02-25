@@ -9,12 +9,13 @@
 #include "ur_modern_driver/ros/action_server.h"
 #include "ur_modern_driver/ros/controller.h"
 #include "ur_modern_driver/ros/io_service.h"
-#include "ur_modern_driver/ros/lowbandwidth_trajectory_follower.h"
 #include "ur_modern_driver/ros/mb_publisher.h"
 #include "ur_modern_driver/ros/rt_publisher.h"
 #include "ur_modern_driver/ros/service_stopper.h"
 #include "ur_modern_driver/ros/trajectory_follower.h"
+#include "ur_modern_driver/ros/lowbandwidth_trajectory_follower.h"
 #include "ur_modern_driver/ros/urscript_handler.h"
+#include "ur_modern_driver/ros/force_controller.h"
 #include "ur_modern_driver/ur/commander.h"
 #include "ur_modern_driver/ur/factory.h"
 #include "ur_modern_driver/ur/messages.h"
@@ -27,6 +28,7 @@ static const std::string IP_ADDR_ARG("~robot_ip_address");
 static const std::string REVERSE_PORT_ARG("~reverse_port");
 static const std::string ROS_CONTROL_ARG("~use_ros_control");
 static const std::string LOW_BANDWIDTH_TRAJECTORY_FOLLOWER("~use_lowbandwidth_trajectory_follower");
+static const std::string FORCE_CONTROLLER("~use_force_controller");
 static const std::string MAX_VEL_CHANGE_ARG("~max_vel_change");
 static const std::string PREFIX_ARG("~prefix");
 static const std::string BASE_FRAME_ARG("~base_frame");
@@ -56,36 +58,34 @@ public:
   int32_t reverse_port;
   bool use_ros_control;
   bool use_lowbandwidth_trajectory_follower;
+  bool use_force_controller;
   bool shutdown_on_disconnect;
 };
 
 class IgnorePipelineStoppedNotifier : public INotifier
 {
 public:
-  void started(std::string name)
-  {
-    LOG_INFO("Starting pipeline %s", name.c_str());
-  }
-  void stopped(std::string name)
-  {
-    LOG_INFO("Stopping pipeline %s", name.c_str());
-  }
+    void started(std::string name){
+        LOG_INFO("Starting pipeline %s", name.c_str());
+    }
+    void stopped(std::string name){
+        LOG_INFO("Stopping pipeline %s", name.c_str());
+    }
 };
 
 class ShutdownOnPipelineStoppedNotifier : public INotifier
 {
 public:
-  void started(std::string name)
-  {
-    LOG_INFO("Starting pipeline %s", name.c_str());
-  }
-  void stopped(std::string name)
-  {
-    LOG_INFO("Shutting down on stopped pipeline %s", name.c_str());
-    ros::shutdown();
-    exit(1);
-  }
+    void started(std::string name){
+        LOG_INFO("Starting pipeline %s", name.c_str());
+    }
+    void stopped(std::string name){
+        LOG_INFO("Shutting down on stopped pipeline %s", name.c_str());
+        ros::shutdown();
+        exit(1);
+    }
 };
+
 
 bool parse_args(ProgArgs &args)
 {
@@ -99,6 +99,7 @@ bool parse_args(ProgArgs &args)
   ros::param::param(MAX_VEL_CHANGE_ARG, args.max_velocity, 10.0);
   ros::param::param(ROS_CONTROL_ARG, args.use_ros_control, false);
   ros::param::param(LOW_BANDWIDTH_TRAJECTORY_FOLLOWER, args.use_lowbandwidth_trajectory_follower, false);
+  ros::param::param(FORCE_CONTROLLER, args.use_force_controller, false);
   ros::param::param(PREFIX_ARG, args.prefix, std::string());
   ros::param::param(BASE_FRAME_ARG, args.base_frame, args.prefix + "base_link");
   ros::param::param(TOOL_FRAME_ARG, args.tool_frame, args.prefix + "tool0_controller");
@@ -124,9 +125,9 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  // Add prefix to joint names
-  std::transform(args.joint_names.begin(), args.joint_names.end(), args.joint_names.begin(),
-                 [&args](std::string name) { return args.prefix + name; });
+  //Add prefix to joint names
+  std::transform (args.joint_names.begin(), args.joint_names.end(), args.joint_names.begin(),
+        [&args](std::string name){return args.prefix + name;});
 
   std::string local_ip(getLocalIPAccessibleFromHost(args.host));
 
@@ -144,14 +145,22 @@ int main(int argc, char **argv)
   INotifier *notifier(nullptr);
   ROSController *controller(nullptr);
   ActionServer *action_server(nullptr);
+  ForceController *force_controller(nullptr);
+  
   if (args.use_ros_control)
   {
     LOG_INFO("ROS control enabled");
-    TrajectoryFollower *traj_follower =
-        new TrajectoryFollower(*rt_commander, local_ip, args.reverse_port, factory.isVersion3());
+    TrajectoryFollower *traj_follower = new TrajectoryFollower(
+        *rt_commander, local_ip, args.reverse_port, factory.isVersion3());
     controller = new ROSController(*rt_commander, *traj_follower, args.joint_names, args.max_vel_change, args.tcp_link);
     rt_vec.push_back(controller);
     services.push_back(controller);
+  }
+  else if(args.use_force_controller)
+  {
+    LOG_INFO("Use force controller");
+    force_controller = new ForceController(*rt_commander, local_ip, args.reverse_port);
+    services.push_back(force_controller);
   }
   else
   {
@@ -160,8 +169,8 @@ int main(int argc, char **argv)
     if (args.use_lowbandwidth_trajectory_follower)
     {
       LOG_INFO("Use low bandwidth trajectory follower");
-      traj_follower =
-          new LowBandwidthTrajectoryFollower(*rt_commander, local_ip, args.reverse_port, factory.isVersion3());
+      traj_follower = new LowBandwidthTrajectoryFollower(*rt_commander,
+           local_ip, args.reverse_port,factory.isVersion3());
     }
     else
     {
@@ -221,6 +230,9 @@ int main(int argc, char **argv)
 
   if (controller)
     delete controller;
+
+  if (force_controller)
+    delete force_controller;
 
   LOG_INFO("Pipelines shutdown complete");
 
