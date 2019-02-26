@@ -221,6 +221,9 @@ int main(int argc, char **argv)
   if (action_server)
     action_server->start();
 
+  if (force_controller)
+    force_controller->start();
+
   ros::spin();
 
   LOG_INFO("ROS stopping, shutting down pipelines");
