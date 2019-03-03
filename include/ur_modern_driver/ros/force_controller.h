@@ -39,4 +39,6 @@ public:
 
   bool start();
   void stop();
+
+  virtual ~ForceController(){};
 };
