@@ -23,7 +23,7 @@
   <arg name="servoj_lookahead_time" default="1." />
   <arg name="force_control_max_linear_speed" default="0.15" />
   <arg name="force_control_max_rotational_speed" default="1.0471975511965976" />
-  <arg name="force_control_watchdog_timeout" default="50." />
+  <arg name="force_control_watchdog_timeout" default="2." />
   <arg name="max_joint_difference" default="0.01" />
   <arg name="base_frame" default="$(arg prefix)base" />
   <arg name="tool_frame" default="$(arg prefix)tool0_controller" />
