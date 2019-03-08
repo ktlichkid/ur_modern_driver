@@ -8,13 +8,13 @@ static const std::string WATCHDOG_TIMEOUT_REPLACE("{{WATCHDOG_TIMEOUT_REPLACE}}"
 static const std::string FORCE_MODE_REPLACE("{{FORCE_MODE_REPLACE}}");
 static const std::string SERVER_IP_REPLACE("{{SERVER_IP_REPLACE}}");
 static const std::string SERVER_PORT_REPLACE("{{SERVER_PORT_REPLACE}}");
-static const std::string POSITION_PROGRAM = R"(
-def force_mode():
-  global active=False
-  global cmd=[0,0,0,0,0,0]
-  global multiplier={{MULTIPIER_REPLACE}}
-  global wd_timer=0
-  global wd_timer_is_counting=False
+static const std::string FORCE_CONTROL_PROGRAM = R"(
+def force_control():
+  global active = False
+  global cmd = [0,0,0,0,0,0]
+  global multiplier = {{MULTIPIER_REPLACE}}
+  global wd_timer = 0
+  global wd_timer_is_counting = False
   thread Timer_Thread():
     while (True):
       if (wd_timer_is_counting):
@@ -25,55 +25,24 @@ def force_mode():
   end
   run Timer_Thread()
   zero_ftsensor()
-  global connected=socket_open("{{SERVER_IP_REPLACE}}", {{SERVER_PORT_REPLACE}})
+  global connected = socket_open("{{SERVER_IP_REPLACE}}", {{SERVER_PORT_REPLACE}})
   while (True):
-    global params=socket_read_binary_integer(6)
+    global params = socket_read_binary_integer(6)
     if (params[0] > 0):
-      global thread_flag_timeon=0
-      thread Thread_timeon():
-        wd_timer = 0
-        thread_flag_timeon = 1
-      end
       if (active):
-        global thread_handler_timeon=run Thread_timeon()
-        while (thread_flag_timeon == 0):
-          if not(active):
-            kill thread_handler_timeon
-            thread_flag_timeon = 2
-          else:
-            sync()
-          end
-        end
+        wd_timer = 0
       else:
-        thread_flag_timeon = 2
-      end
-      if (thread_flag_timeon == 2):
-        global active=  True
+        global active = True
         wd_timer_is_counting = True
       end
-      global cmd=[params[1]/multiplier, params[2]/multiplier,params[3]/multiplier,params[4]/multiplier,params[5]/multiplier,params[6]/multiplier]
+      global cmd = [params[1]/multiplier, params[2]/multiplier,params[3]/multiplier,params[4]/multiplier,params[5]/multiplier,params[6]/multiplier]
       force_mode(p[0.0,0.0,0.0,0.0,0.0,0.0], [1,1,1,1,1,1], cmd, 2, {{FORCE_MODE_REPLACE}})
     end
-    global thread_flag_timeout=0
-    thread Thread_timeout():
+    if (active and wd_timer > {{WATCHDOG_TIMEOUT_REPLACE}}):
       end_force_mode()
       wd_timer = 0
       wd_timer_is_counting = False
       global active = False
-      thread_flag_timeout = 1
-    end
-    if (active   and  wd_timer>{{WATCHDOG_TIMEOUT_REPLACE}}):
-      global thread_handler_timeout=run Thread_timeout()
-      while (thread_flag_timeout == 0):
-        if not(active and wd_timer>5):
-          kill thread_handler_timeout
-          thread_flag_timeout = 2
-        else:
-          sync()
-        end
-      end
-    else:
-      thread_flag_timeout = 2
     end
     sleep(0.01)
   end
@@ -95,7 +64,7 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   LOG_INFO("Initializing force controller subscriber");
   force_cmd_sub_ = nh_.subscribe("ur_driver/force_cmd", 1, &ForceController::force_cmd_cb, this);
 
-  std::string res(POSITION_PROGRAM);
+  std::string res(FORCE_CONTROL_PROGRAM);
 
   std::ostringstream out;
   out << std::fixed << std::setprecision(4);
