@@ -8,6 +8,8 @@
 -->
 <launch>
 
+  <rosparam command="load" file="$(find ur_modern_driver)/config/force_control_params.yaml" ns="ur_driver"/>
+
   <!-- robot_ip: IP-address of the robot's socket-messaging server -->
   <arg name="robot_ip"/>
   <arg name="limited" default="false"/>
@@ -21,9 +23,6 @@
   <arg name="max_waiting_time" default="2.0" />
   <arg name="servoj_gain" default="100." />
   <arg name="servoj_lookahead_time" default="1." />
-  <arg name="force_control_max_linear_speed" default="0.15" />
-  <arg name="force_control_max_rotational_speed" default="1.0471975511965976" />
-  <arg name="force_control_watchdog_timeout" default="2." />
   <arg name="max_joint_difference" default="0.01" />
   <arg name="base_frame" default="$(arg prefix)base" />
   <arg name="tool_frame" default="$(arg prefix)tool0_controller" />
@@ -46,9 +45,6 @@
     <arg name="max_waiting_time" value="$(arg max_waiting_time)" />
     <arg name="servoj_gain" value="$(arg servoj_gain)" />
     <arg name="servoj_lookahead_time" value="$(arg servoj_lookahead_time)" />
-    <arg name="force_control_max_linear_speed" default="$(arg force_control_max_linear_speed)" />
-    <arg name="force_control_max_rotational_speed" default="$(arg force_control_max_rotational_speed)" />
-    <arg name="force_control_watchdog_timeout" default="$(arg force_control_watchdog_timeout)" />
     <arg name="max_joint_difference" value="$(arg max_joint_difference)" />
     <arg name="base_frame" value="$(arg base_frame)" />
     <arg name="tool_frame" value="$(arg tool_frame)" />

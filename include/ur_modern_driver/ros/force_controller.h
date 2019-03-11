@@ -5,7 +5,7 @@
 
 #include "std_msgs/String.h"
 #include "std_msgs/Empty.h"
-#include "geometry_msgs/Wrench.h"
+#include "geometry_msgs/Pose.h"
 #include "ur_modern_driver/log.h"
 #include "ur_modern_driver/ros/service_stopper.h"
 #include "ur_modern_driver/ur/commander.h"
@@ -33,7 +33,7 @@ private:
 
 public:
   ForceController(URCommander &commander, std::string &reverse_ip, int reverse_port);
-  void force_cmd_cb(const geometry_msgs::Wrench::ConstPtr& msg);
+  void pose_cmd_cb(const geometry_msgs::Pose::ConstPtr& msg);
   void ping_cb(const std_msgs::Empty::ConstPtr& msg);
   void onRobotStateChange(RobotState state);
 

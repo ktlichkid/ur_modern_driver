@@ -1,0 +1,6 @@
+max_velocity_linear: 0.3
+max_velocity_rotation: 1.0
+max_force: 10
+max_torque: 2.0
+linear_gain: 500.0
+rotational_gain: 10.0
