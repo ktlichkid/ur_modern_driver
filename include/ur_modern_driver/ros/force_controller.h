@@ -15,11 +15,12 @@ class ForceController: public Service
 {
 private:
   std::atomic<bool> running_;
+  std::vector<double> default_orientation_;
 
   ros::NodeHandle nh_;
   URCommander &commander_;
   URServer server_;
-  ros::Subscriber force_cmd_sub_;
+  ros::Subscriber pose_cmd_sub_, position_cmd_sub_;
   RobotState state_;
   std::string program_;
 
@@ -34,7 +35,7 @@ private:
 public:
   ForceController(URCommander &commander, std::string &reverse_ip, int reverse_port);
   void pose_cmd_cb(const geometry_msgs::Pose::ConstPtr& msg);
-  void ping_cb(const std_msgs::Empty::ConstPtr& msg);
+  void position_cmd_cb(const geometry_msgs::Point::ConstPtr& msg);
   void onRobotStateChange(RobotState state);
 
   bool start();

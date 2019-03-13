@@ -112,9 +112,11 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   ros::param::get("~max_torque", T_max);
   ros::param::get("~linear_gain", k_p);
   ros::param::get("~rotational_gain", k_q);
+  ros::param::get("~default_orientation", default_orientation_);
 
   LOG_INFO("Initializing force controller subscriber");
-  force_cmd_sub_ = nh_.subscribe("ur_driver/pose_cmd", 1, &ForceController::pose_cmd_cb, this);
+  pose_cmd_sub_ = nh_.subscribe("ur_driver/pose_cmd", 1, &ForceController::pose_cmd_cb, this);
+  position_cmd_sub_ = nh_.subscribe("ur_driver/position_cmd", 1, &ForceController::position_cmd_cb, this);
 
   std::string res(FORCE_CONTROL_PROGRAM);
 
@@ -171,6 +173,20 @@ void ForceController::onRobotStateChange(RobotState state)
    state_ = state;
 }
 
+void ForceController::position_cmd_cb(const geometry_msgs::Point::ConstPtr& msg)
+{
+  geometry_msgs::Pose *pose = new geometry_msgs::Pose();
+  pose->position.x = msg->x;
+  pose->position.y = msg->y;
+  pose->position.z = msg->z;
+  pose->orientation.x = default_orientation_[0];
+  pose->orientation.y = default_orientation_[1];
+  pose->orientation.z = default_orientation_[2];
+  pose->orientation.w = default_orientation_[3];
+
+  pose_cmd_cb(geometry_msgs::Pose::ConstPtr(pose));
+}
+
 void ForceController::pose_cmd_cb(const geometry_msgs::Pose::ConstPtr& msg)
 {
   if (!running_)
@@ -191,7 +207,7 @@ void ForceController::pose_cmd_cb(const geometry_msgs::Pose::ConstPtr& msg)
   idx += append(idx, val);
   val = htobe32(static_cast<int32_t>(msg->orientation.z * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(msg->orientation.z * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(msg->orientation.w * MULTIPLIER_));
   idx += append(idx, val);
 
   size_t written;
