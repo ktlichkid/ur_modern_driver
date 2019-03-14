@@ -15,7 +15,7 @@ class ForceController: public Service
 {
 private:
   std::atomic<bool> running_;
-  std::vector<double> default_orientation_;
+  std::vector<double> default_orientation_, workspace_upper_limit_, workspace_lower_limit_;
 
   ros::NodeHandle nh_;
   URCommander &commander_;

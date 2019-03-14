@@ -113,6 +113,8 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   ros::param::get("~linear_gain", k_p);
   ros::param::get("~rotational_gain", k_q);
   ros::param::get("~default_orientation", default_orientation_);
+  ros::param::get("~workspace_upper_limit", workspace_upper_limit_);
+  ros::param::get("~workspace_lower_limit", workspace_lower_limit_);
 
   LOG_INFO("Initializing force controller subscriber");
   pose_cmd_sub_ = nh_.subscribe("ur_driver/pose_cmd", 1, &ForceController::pose_cmd_cb, this);
@@ -192,14 +194,18 @@ void ForceController::pose_cmd_cb(const geometry_msgs::Pose::ConstPtr& msg)
   if (!running_)
     return;
 
+  double x = std::max(workspace_lower_limit_[0], std::min(msg->position.x, workspace_upper_limit_[0]));
+  double y = std::max(workspace_lower_limit_[1], std::min(msg->position.y, workspace_upper_limit_[1]));
+  double z = std::max(workspace_lower_limit_[2], std::min(msg->position.z, workspace_upper_limit_[2]));
+
   uint8_t buf[sizeof(uint32_t) * 7];
   uint8_t *idx = buf;
 
-  int32_t val = htobe32(static_cast<int32_t>(msg->position.x * MULTIPLIER_));
+  int32_t val = htobe32(static_cast<int32_t>(x * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(msg->position.y * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(y * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(msg->position.z * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(z * MULTIPLIER_));
   idx += append(idx, val);
   val = htobe32(static_cast<int32_t>(msg->orientation.x * MULTIPLIER_));
   idx += append(idx, val);
