@@ -104,6 +104,8 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
     , commander_(commander)
     , server_(reverse_port)
     , state_(RobotState::Error)
+    , workspace_upper_limit_{std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()}
+    , workspace_lower_limit_{-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(), -std::numeric_limits<double>::max()}
 {
   double v_max, w_max, F_max, T_max, k_p, k_q;
   ros::param::get("~max_velocity_linear", v_max);

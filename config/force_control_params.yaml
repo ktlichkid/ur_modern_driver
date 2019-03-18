@@ -5,5 +5,3 @@ max_torque: 2.0
 linear_gain: 500.0
 rotational_gain: 10.0
 default_orientation: [1.0, 0.0, 0.0, 0.0]
-workspace_lower_limit: [0.370, -0.485, 0.225]
-workspace_upper_limit: [0.633, -0.095, 0.335]
