@@ -2,6 +2,7 @@
 #include "ur_modern_driver/log.h"
 
 static const int32_t MULTIPLIER_ = 1000000;
+static const int32_t N_RETRIES = 3;
 static const std::string MULTIPIER_REPLACE("{{MULTIPIER_REPLACE}}");
 static const std::string F_MAX_REPLACE("{{F_MAX_REPLACE}}");
 static const std::string T_MAX_REPLACE("{{T_MAX_REPLACE}}");
@@ -101,11 +102,11 @@ end
 
 ForceController::ForceController(URCommander &commander, std::string &reverse_ip, int reverse_port)
     : running_(false)
+    , workspace_upper_limit_{std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()}
+    , workspace_lower_limit_{-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(), -std::numeric_limits<double>::max()}
     , commander_(commander)
     , server_(reverse_port)
     , state_(RobotState::Error)
-    , workspace_upper_limit_{std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()}
-    , workspace_lower_limit_{-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(), -std::numeric_limits<double>::max()}
 {
   double v_max, w_max, F_max, T_max, k_p, k_q;
   ros::param::get("~max_velocity_linear", v_max);
@@ -154,7 +155,13 @@ bool ForceController::start()
 
   LOG_INFO("Uploading force control program to robot");
 
-  if (!commander_.uploadProg(program_))
+  int32_t retry_i = 0;
+  for(; retry_i < N_RETRIES && !commander_.uploadProg(program_); ++retry_i)
+  {
+    LOG_ERROR("Program upload failed, retrying");
+  }
+
+  if(retry_i == N_RETRIES)
   {
     LOG_ERROR("Program upload failed!");
     return false;
