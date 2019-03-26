@@ -27,6 +27,7 @@
 static const std::string IP_ADDR_ARG("~robot_ip_address");
 static const std::string REVERSE_PORT_ARG("~reverse_port");
 static const std::string ROS_CONTROL_ARG("~use_ros_control");
+static const std::string DRIFT_CORRECTION_ARG("~drift_correction");
 static const std::string LOW_BANDWIDTH_TRAJECTORY_FOLLOWER("~use_lowbandwidth_trajectory_follower");
 static const std::string FORCE_CONTROLLER("~use_force_controller");
 static const std::string MAX_VEL_CHANGE_ARG("~max_vel_change");
@@ -55,6 +56,7 @@ public:
   double max_acceleration;
   double max_velocity;
   double max_vel_change;
+  double drift_correction;
   int32_t reverse_port;
   bool use_ros_control;
   bool use_lowbandwidth_trajectory_follower;
@@ -98,6 +100,7 @@ bool parse_args(ProgArgs &args)
   ros::param::param(MAX_VEL_CHANGE_ARG, args.max_vel_change, 15.0);  // rad/s
   ros::param::param(MAX_VEL_CHANGE_ARG, args.max_velocity, 10.0);
   ros::param::param(ROS_CONTROL_ARG, args.use_ros_control, false);
+  ros::param::param(DRIFT_CORRECTION_ARG, args.drift_correction, 0.0);
   ros::param::param(LOW_BANDWIDTH_TRAJECTORY_FOLLOWER, args.use_lowbandwidth_trajectory_follower, false);
   ros::param::param(FORCE_CONTROLLER, args.use_force_controller, false);
   ros::param::param(PREFIX_ARG, args.prefix, std::string());
@@ -138,7 +141,7 @@ int main(int argc, char **argv)
   auto rt_parser = factory.getRTParser();
   URStream rt_stream(args.host, UR_RT_PORT);
   URProducer<RTPacket> rt_prod(rt_stream, *rt_parser);
-  RTPublisher rt_pub(args.prefix, args.base_frame, args.tool_frame, args.use_ros_control);
+  RTPublisher rt_pub(args.prefix, args.base_frame, args.tool_frame, args.use_ros_control, args.drift_correction);
   auto rt_commander = factory.getCommander(rt_stream);
   vector<IConsumer<RTPacket> *> rt_vec{ &rt_pub };
 
