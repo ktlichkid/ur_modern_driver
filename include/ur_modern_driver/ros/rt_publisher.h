@@ -25,7 +25,7 @@ private:
   NodeHandle nh_;
   Publisher joint_pub_;
   Publisher wrench_pub_;
-  Publisher wrench_drift_corrected_pub_;
+  Publisher wrench_bias_corrected_pub_;
   Publisher tool_vel_pub_;
   Publisher joint_temperature_pub_;
   TransformBroadcaster transform_broadcaster_;
@@ -34,7 +34,7 @@ private:
   std::string tool_frame_;
   geometry_msgs::WrenchStamped loadcell_bias;
   bool temp_only_;
-  double drift_correction_;
+  double bias_correction_;
 
   bool publishJoints(RTShared& packet, Time& t);
   bool publishWrench(RTShared& packet, Time& t);
@@ -45,16 +45,16 @@ private:
   bool publish(RTShared& packet);
 
 public:
-  RTPublisher(std::string& joint_prefix, std::string& base_frame, std::string& tool_frame, bool temp_only = false, double drift_correction = 0.0)
+  RTPublisher(std::string& joint_prefix, std::string& base_frame, std::string& tool_frame, bool temp_only = false, double bias_correction = 0.0)
     : joint_pub_(nh_.advertise<sensor_msgs::JointState>("joint_states", 1))
     , wrench_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench", 1))
-    , wrench_drift_corrected_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench_drift_corrected", 1))
+    , wrench_bias_corrected_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench_bias_corrected", 1))
     , tool_vel_pub_(nh_.advertise<geometry_msgs::TwistStamped>("tool_velocity", 1))
     , joint_temperature_pub_(nh_.advertise<sensor_msgs::Temperature>("joint_temperature", 1))
     , base_frame_(base_frame)
     , tool_frame_(tool_frame)
     , temp_only_(temp_only)
-    , drift_correction_(drift_correction)
+    , bias_correction_(bias_correction)
   {
     for (auto const& j : JOINTS)
     {

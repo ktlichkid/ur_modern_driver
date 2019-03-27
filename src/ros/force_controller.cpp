@@ -8,11 +8,13 @@ static const std::string F_MAX_REPLACE("{{F_MAX_REPLACE}}");
 static const std::string T_MAX_REPLACE("{{T_MAX_REPLACE}}");
 static const std::string K_P_REPLACE("{{K_P_REPLACE}}");
 static const std::string K_Q_REPLACE("{{K_Q_REPLACE}}");
+static const std::string K_BIAS_REPLACE("{{K_BIAS_REPLACE}}");
 static const std::string FORCE_MODE_REPLACE("{{FORCE_MODE_REPLACE}}");
 static const std::string SERVER_IP_REPLACE("{{SERVER_IP_REPLACE}}");
 static const std::string SERVER_PORT_REPLACE("{{SERVER_PORT_REPLACE}}");
 static const std::string FORCE_CONTROL_PROGRAM = R"(
 def force_mode_p_control():
+
   def clip(l, low, high):
     local i = 0
     while i < get_list_length(l):
@@ -26,13 +28,40 @@ def force_mode_p_control():
     return l
   end
 
-  def list_mul(l, k):
+  def mul(l, k, len=-1):
     local i = 0
-    while i < get_list_length(l):
-     l[i] = l[i] * k
-     i = i + 1
+    if len == -1:
+      len = get_list_length(l)
+    end
+    while i < len:
+      l[i] = l[i] * k
+      i = i + 1
     end
     return l
+  end
+
+  def add(l_1, l_2, len=-1):
+    local i = 0
+    if len == -1:
+      len = get_list_length(l_1)
+    end
+    while i < len:
+      l_1[i] = l_1[i] + l_2[i]
+      i = i + 1
+    end
+    return l_1
+  end
+
+  def sub(l_1, l_2, len=-1):
+    local i = 0
+    if len == -1:
+      len = get_list_length(l_1)
+    end
+    while i < len:
+      l_1[i] = l_1[i] - l_2[i]
+      i = i + 1
+    end
+    return l_1
   end
 
   def vect_2_quaternion(vect):
@@ -58,16 +87,26 @@ def force_mode_p_control():
 
   global multiplier = {{MULTIPIER_REPLACE}}
   global startup_pose = get_actual_tcp_pose()
+  global bias = p[0,0,0,0,0,0]
   global targ_pos = [startup_pose[0],startup_pose[1],startup_pose[2]]
   global targ_rot = vect_2_quaternion([startup_pose[3],startup_pose[4],startup_pose[5]])
   global F_max = {{F_MAX_REPLACE}}
   global T_max = {{T_MAX_REPLACE}}
   global k_p = {{K_P_REPLACE}}
   global k_q = {{K_Q_REPLACE}}
+  global k_bias = {{K_BIAS_REPLACE}}
 
   zero_ftsensor()
-
   global connected = socket_open("{{SERVER_IP_REPLACE}}", {{SERVER_PORT_REPLACE}})
+
+  thread Thread_bias_estimation():
+    while (True):
+      global bias = add(bias,mul(sub(get_tcp_force(), bias, 6),k_bias * 0.01,6),6)
+      sleep(0.01)
+    end
+  end
+
+  threadId_Thread_bias_estimation = run Thread_bias_estimation()
 
   thread Thread_force_control():
     while (True):
@@ -79,9 +118,9 @@ def force_mode_p_control():
       if (err_rot[3] < 0):
         local err_rot=quaternion_conjugate(err_rot)
       end
-      local force_cmd=clip(list_mul(err_pos, k_p),-F_max,F_max)
-      local torque_cmd=clip(list_mul([err_rot[0], err_rot[1], err_rot[2]], k_q),-T_max,T_max)
-      local cmd=[force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]]
+      local force_cmd=clip(mul(err_pos, k_p),-F_max,F_max)
+      local torque_cmd=clip(mul([err_rot[0], err_rot[1], err_rot[2]], k_q),-T_max,T_max)
+      local cmd=add([force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]], bias,6)
       force_mode(p[0.0,0.0,0.0,0.0,0.0,0.0], [1,1,1,1,1,1], cmd, 2, {{FORCE_MODE_REPLACE}})
       sync()
     end
@@ -108,13 +147,14 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
     , server_(reverse_port)
     , state_(RobotState::Error)
 {
-  double v_max, w_max, F_max, T_max, k_p, k_q;
+  double v_max, w_max, F_max, T_max, k_p, k_q, k_bias;
   ros::param::get("~max_velocity_linear", v_max);
   ros::param::get("~max_velocity_rotation", w_max);
   ros::param::get("~max_force", F_max);
   ros::param::get("~max_torque", T_max);
   ros::param::get("~linear_gain", k_p);
   ros::param::get("~rotational_gain", k_q);
+  ros::param::get("~bias_correction_gain", k_bias);
   ros::param::get("~default_orientation", default_orientation_);
   ros::param::get("~workspace_upper_limit", workspace_upper_limit_);
   ros::param::get("~workspace_lower_limit", workspace_lower_limit_);
@@ -134,6 +174,7 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   res.replace(res.find(T_MAX_REPLACE), T_MAX_REPLACE.length(), std::to_string(T_max));
   res.replace(res.find(K_P_REPLACE), K_P_REPLACE.length(), std::to_string(k_p));
   res.replace(res.find(K_Q_REPLACE), K_Q_REPLACE.length(), std::to_string(k_q));
+  res.replace(res.find(K_BIAS_REPLACE), K_BIAS_REPLACE.length(), std::to_string(k_bias));
   res.replace(res.find(FORCE_MODE_REPLACE), FORCE_MODE_REPLACE.length(), out.str());
   res.replace(res.find(SERVER_IP_REPLACE), SERVER_IP_REPLACE.length(), reverse_ip);
   res.replace(res.find(SERVER_PORT_REPLACE), SERVER_PORT_REPLACE.length(), std::to_string(reverse_port));

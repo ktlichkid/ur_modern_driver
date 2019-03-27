@@ -31,24 +31,24 @@ bool RTPublisher::publishWrench(RTShared& packet, Time& t)
   if (!loadcell_bias.header.stamp.isZero())
   {
     double dt = (t - loadcell_bias.header.stamp).toSec();
-    loadcell_bias.wrench.force.x += (wrench_msg.wrench.force.x - loadcell_bias.wrench.force.x) * drift_correction_ * dt;
-    loadcell_bias.wrench.force.y += (wrench_msg.wrench.force.y - loadcell_bias.wrench.force.y) * drift_correction_ * dt;
-    loadcell_bias.wrench.force.z += (wrench_msg.wrench.force.z - loadcell_bias.wrench.force.z) * drift_correction_ * dt;
-    loadcell_bias.wrench.torque.x += (wrench_msg.wrench.torque.x - loadcell_bias.wrench.torque.x) * drift_correction_ * dt;
-    loadcell_bias.wrench.torque.y += (wrench_msg.wrench.torque.y - loadcell_bias.wrench.torque.y) * drift_correction_ * dt;
-    loadcell_bias.wrench.torque.z += (wrench_msg.wrench.torque.z - loadcell_bias.wrench.torque.z) * drift_correction_ * dt;
+    loadcell_bias.wrench.force.x += (wrench_msg.wrench.force.x - loadcell_bias.wrench.force.x) * bias_correction_ * dt;
+    loadcell_bias.wrench.force.y += (wrench_msg.wrench.force.y - loadcell_bias.wrench.force.y) * bias_correction_ * dt;
+    loadcell_bias.wrench.force.z += (wrench_msg.wrench.force.z - loadcell_bias.wrench.force.z) * bias_correction_ * dt;
+    loadcell_bias.wrench.torque.x += (wrench_msg.wrench.torque.x - loadcell_bias.wrench.torque.x) * bias_correction_ * dt;
+    loadcell_bias.wrench.torque.y += (wrench_msg.wrench.torque.y - loadcell_bias.wrench.torque.y) * bias_correction_ * dt;
+    loadcell_bias.wrench.torque.z += (wrench_msg.wrench.torque.z - loadcell_bias.wrench.torque.z) * bias_correction_ * dt;
     loadcell_bias.header.stamp = t;
 
-    geometry_msgs::WrenchStamped wrench_drift_corrected_msg;
-    wrench_drift_corrected_msg.header.stamp = t;
-    wrench_drift_corrected_msg.wrench.force.x = packet.tcp_force[0] - loadcell_bias.wrench.force.x;
-    wrench_drift_corrected_msg.wrench.force.y = packet.tcp_force[1] - loadcell_bias.wrench.force.y;
-    wrench_drift_corrected_msg.wrench.force.z = packet.tcp_force[2] - loadcell_bias.wrench.force.z;
-    wrench_drift_corrected_msg.wrench.torque.x = packet.tcp_force[3] - loadcell_bias.wrench.force.x;
-    wrench_drift_corrected_msg.wrench.torque.y = packet.tcp_force[4] - loadcell_bias.wrench.force.y;
-    wrench_drift_corrected_msg.wrench.torque.z = packet.tcp_force[5] - loadcell_bias.wrench.force.z;
+    geometry_msgs::WrenchStamped wrench_bias_corrected_msg;
+    wrench_bias_corrected_msg.header.stamp = t;
+    wrench_bias_corrected_msg.wrench.force.x = packet.tcp_force[0] - loadcell_bias.wrench.force.x;
+    wrench_bias_corrected_msg.wrench.force.y = packet.tcp_force[1] - loadcell_bias.wrench.force.y;
+    wrench_bias_corrected_msg.wrench.force.z = packet.tcp_force[2] - loadcell_bias.wrench.force.z;
+    wrench_bias_corrected_msg.wrench.torque.x = packet.tcp_force[3] - loadcell_bias.wrench.force.x;
+    wrench_bias_corrected_msg.wrench.torque.y = packet.tcp_force[4] - loadcell_bias.wrench.force.y;
+    wrench_bias_corrected_msg.wrench.torque.z = packet.tcp_force[5] - loadcell_bias.wrench.force.z;
 
-    wrench_drift_corrected_pub_.publish(wrench_drift_corrected_msg);
+    wrench_bias_corrected_pub_.publish(wrench_bias_corrected_msg);
   }
   else
   {
