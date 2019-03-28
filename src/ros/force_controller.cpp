@@ -13,7 +13,7 @@ static const std::string FORCE_MODE_REPLACE("{{FORCE_MODE_REPLACE}}");
 static const std::string SERVER_IP_REPLACE("{{SERVER_IP_REPLACE}}");
 static const std::string SERVER_PORT_REPLACE("{{SERVER_PORT_REPLACE}}");
 static const std::string FORCE_CONTROL_PROGRAM = R"(
-def force_mode_p_control():
+def force_mode_p_control_bias_corrected():
 
   def clip(l, low, high):
     local i = 0
@@ -28,14 +28,14 @@ def force_mode_p_control():
     return l
   end
 
-  def mul(l, k, len=-1):
+  def multiply(l, k, len=-1):
     local i = 0
     if len == -1:
       len = get_list_length(l)
     end
     while i < len:
-      l[i] = l[i] * k
-      i = i + 1
+     l[i] = l[i] * k
+     i = i + 1
     end
     return l
   end
@@ -46,20 +46,20 @@ def force_mode_p_control():
       len = get_list_length(l_1)
     end
     while i < len:
-      l_1[i] = l_1[i] + l_2[i]
-      i = i + 1
+     l_1[i] = l_1[i] + l_2[i]
+     i = i + 1
     end
     return l_1
   end
 
-  def sub(l_1, l_2, len=-1):
+  def subtract(l_1, l_2, len=-1):
     local i = 0
     if len == -1:
       len = get_list_length(l_1)
     end
     while i < len:
-      l_1[i] = l_1[i] - l_2[i]
-      i = i + 1
+     l_1[i] = l_1[i] - l_2[i]
+     i = i + 1
     end
     return l_1
   end
@@ -85,42 +85,44 @@ def force_mode_p_control():
     return [q1[0]*q0[3]+q1[1]*q0[2]-q1[2]*q0[1]+q1[3]*q0[0], -q1[0]*q0[2]+q1[1]*q0[3]+q1[2]*q0[0]+q1[3]*q0[1], q1[0]*q0[1]-q1[1]*q0[0]+q1[2]*q0[3]+q1[3]*q0[2], -q1[0]*q0[0]-q1[1]*q0[1]-q1[2]*q0[2]+q1[3]*q0[3]]
   end
 
-  global multiplier = {{MULTIPIER_REPLACE}}
-  global startup_pose = get_actual_tcp_pose()
   global bias = p[0,0,0,0,0,0]
-  global targ_pos = [startup_pose[0],startup_pose[1],startup_pose[2]]
-  global targ_rot = vect_2_quaternion([startup_pose[3],startup_pose[4],startup_pose[5]])
+  global cmd = [0,0,0,0,0,0]
+  global multiplier = {{MULTIPIER_REPLACE}}
   global F_max = {{F_MAX_REPLACE}}
   global T_max = {{T_MAX_REPLACE}}
   global k_p = {{K_P_REPLACE}}
   global k_q = {{K_Q_REPLACE}}
   global k_bias = {{K_BIAS_REPLACE}}
 
+  global startup_pose = get_actual_tcp_pose()
+  global targ_pos = [startup_pose[0],startup_pose[1],startup_pose[2]]
+  global targ_rot = vect_2_quaternion([startup_pose[3],startup_pose[4],startup_pose[5]])
+
   zero_ftsensor()
   global connected = socket_open("{{SERVER_IP_REPLACE}}", {{SERVER_PORT_REPLACE}})
 
-  thread Thread_bias_estimation():
+  thread Thread_bias_correction():
     while (True):
-      global bias = add(bias,mul(sub(get_tcp_force(), bias, 6),k_bias * 0.01,6),6)
+      global bias=add(bias,multiply(subtract(get_tcp_force(), bias, 6), k_bias*0.01, 6), 6)
       sleep(0.01)
     end
   end
 
-  threadId_Thread_bias_estimation = run Thread_bias_estimation()
+  threadId_Thread_bias_correction = run Thread_bias_correction()
 
   thread Thread_force_control():
     while (True):
-      local curr = get_actual_tcp_pose ()
-      local curr_pos=[curr[0],curr[1],curr[2]]
-      local curr_rot=vect_2_quaternion([curr[3],curr[4],curr[5]])
-      local err_pos=[targ_pos[0]-curr_pos[0],targ_pos[1]-curr_pos[1],targ_pos[2]-curr_pos[2]]
-      local err_rot=quaternion_multiply(targ_rot, quaternion_conjugate(curr_rot))
+      global curr= get_actual_tcp_pose ()
+      global curr_pos=[curr[0],curr[1],curr[2]]
+      global curr_rot=vect_2_quaternion([curr[3],curr[4],curr[5]])
+      global err_pos=[targ_pos[0]-curr_pos[0],targ_pos[1]-curr_pos[1],targ_pos[2]-curr_pos[2]]
+      global err_rot=quaternion_multiply(targ_rot, quaternion_conjugate(curr_rot))
       if (err_rot[3] < 0):
-        local err_rot=quaternion_conjugate(err_rot)
+        global err_rot=quaternion_conjugate(err_rot)
       end
-      local force_cmd=clip(mul(err_pos, k_p),-F_max,F_max)
-      local torque_cmd=clip(mul([err_rot[0], err_rot[1], err_rot[2]], k_q),-T_max,T_max)
-      local cmd=add([force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]], bias,6)
+      global force_cmd=clip(multiply(err_pos, k_p),-F_max,F_max)
+      global torque_cmd=clip(multiply([err_rot[0], err_rot[1], err_rot[2]], k_q),-T_max,T_max)
+      global cmd=subtract([force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]], bias, 6)
       force_mode(p[0.0,0.0,0.0,0.0,0.0,0.0], [1,1,1,1,1,1], cmd, 2, {{FORCE_MODE_REPLACE}})
       sync()
     end
@@ -136,8 +138,10 @@ def force_mode_p_control():
     end
     sync()
   end
+
 end
 )";
+
 
 ForceController::ForceController(URCommander &commander, std::string &reverse_ip, int reverse_port)
     : running_(false)

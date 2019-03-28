@@ -2,7 +2,7 @@ max_velocity_linear: 0.3
 max_velocity_rotation: 1.0
 max_force: 10
 max_torque: 2.0
-linear_gain: 500.0
+linear_gain: 1000.0
 rotational_gain: 10.0
 default_orientation: [1.0, 0.0, 0.0, 0.0]
 bias_correction_gain: 0.01
