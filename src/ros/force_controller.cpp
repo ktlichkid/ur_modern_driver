@@ -88,8 +88,6 @@ def force_mode_p_control_bias_corrected():
   global bias = p[0,0,0,0,0,0]
   global cmd = [0,0,0,0,0,0]
   global multiplier = {{MULTIPIER_REPLACE}}
-  global F_max = {{F_MAX_REPLACE}}
-  global T_max = {{T_MAX_REPLACE}}
   global k_p = {{K_P_REPLACE}}
   global k_q = {{K_Q_REPLACE}}
   global k_bias = {{K_BIAS_REPLACE}}
@@ -97,13 +95,14 @@ def force_mode_p_control_bias_corrected():
   global startup_pose = get_actual_tcp_pose()
   global targ_pos = [startup_pose[0],startup_pose[1],startup_pose[2]]
   global targ_rot = vect_2_quaternion([startup_pose[3],startup_pose[4],startup_pose[5]])
+  global targ_wrench = [0,0,0,0,0,0]
 
   zero_ftsensor()
   global connected = socket_open("{{SERVER_IP_REPLACE}}", {{SERVER_PORT_REPLACE}})
 
   thread Thread_bias_correction():
     while (True):
-      global bias=add(bias,multiply(subtract(get_tcp_force(), bias, 6), k_bias*0.01, 6), 6)
+      global bias = add(bias, multiply(subtract(get_tcp_force(), bias, 6), k_bias*0.01, 6), 6)
       sleep(0.01)
     end
   end
@@ -112,17 +111,27 @@ def force_mode_p_control_bias_corrected():
 
   thread Thread_force_control():
     while (True):
-      global curr= get_actual_tcp_pose ()
-      global curr_pos=[curr[0],curr[1],curr[2]]
-      global curr_rot=vect_2_quaternion([curr[3],curr[4],curr[5]])
-      global err_pos=[targ_pos[0]-curr_pos[0],targ_pos[1]-curr_pos[1],targ_pos[2]-curr_pos[2]]
-      global err_rot=quaternion_multiply(targ_rot, quaternion_conjugate(curr_rot))
+      global pose = get_actual_tcp_pose()
+      global twist = get_actual_tcp_speed()
+
+      global curr_pos = [pose[0], pose[1], pose[2]]
+      global curr_rot = vect_2_quaternion([pose[3], pose[4], pose[5]])
+      global curr_vel = [twist[0], twist[1], twist[2]]
+      global curr_angvel = [twist[3], twist[4], twist[5]]
+
+      global err_pos = [targ_pos[0]-curr_pos[0], targ_pos[1]-curr_pos[1], targ_pos[2]-curr_pos[2]]
+      global err_rot = quaternion_multiply(targ_rot, quaternion_conjugate(curr_rot))
+
       if (err_rot[3] < 0):
-        global err_rot=quaternion_conjugate(err_rot)
+        global err_rot = quaternion_conjugate(err_rot)
       end
-      global force_cmd=clip(multiply(err_pos, k_p),-F_max,F_max)
-      global torque_cmd=clip(multiply([err_rot[0], err_rot[1], err_rot[2]], k_q),-T_max,T_max)
-      global cmd=subtract([force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]], bias, 6)
+
+      global force_cmd = multiply(err_pos, k_p)
+      global torque_cmd = multiply([err_rot[0], err_rot[1], err_rot[2]], k_q)
+
+      global cmd = [force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]]
+      cmd = subtract(cmd, bias)
+      cmd = add(cmd, targ_wrench)
       force_mode(p[0.0,0.0,0.0,0.0,0.0,0.0], [1,1,1,1,1,1], cmd, 2, {{FORCE_MODE_REPLACE}})
       sync()
     end
@@ -131,14 +140,12 @@ def force_mode_p_control_bias_corrected():
   threadId_Thread_force_control = run Thread_force_control()
 
   while (True):
-    global params=socket_read_binary_integer(7)
+    global params=socket_read_binary_integer(6)
     if (params[0] > 0):
-      global targ_pos=[params[1]/multiplier, params[2]/multiplier,params[3]/multiplier]
-      global targ_rot=[params[4]/multiplier,params[5]/multiplier,params[6]/multiplier,params[7]/multiplier]
+      global targ_wrench = [params[1]/multiplier, params[2]/multiplier, params[3]/multiplier, params[4]/multiplier, params[5]/multiplier, params[6]/multiplier]
     end
     sync()
   end
-
 end
 )";
 
@@ -164,8 +171,7 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   ros::param::get("~workspace_lower_limit", workspace_lower_limit_);
 
   LOG_INFO("Initializing force controller subscriber");
-  pose_cmd_sub_ = nh_.subscribe("ur_driver/pose_cmd", 1, &ForceController::pose_cmd_cb, this);
-  position_cmd_sub_ = nh_.subscribe("ur_driver/position_cmd", 1, &ForceController::position_cmd_cb, this);
+  wrench_cmd_sub_ = nh_.subscribe("ur_driver/wrench_cmd", 1, &ForceController::wrench_cmd_cb, this);
 
   std::string res(FORCE_CONTROL_PROGRAM);
 
@@ -174,8 +180,6 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   out << '[' << v_max << ", " << v_max << ", " << v_max << ", " << w_max << ", " << w_max << ", " << w_max << ']';
 
   res.replace(res.find(MULTIPIER_REPLACE), MULTIPIER_REPLACE.length(), std::to_string(MULTIPLIER_));
-  res.replace(res.find(F_MAX_REPLACE), F_MAX_REPLACE.length(), std::to_string(F_max));
-  res.replace(res.find(T_MAX_REPLACE), T_MAX_REPLACE.length(), std::to_string(T_max));
   res.replace(res.find(K_P_REPLACE), K_P_REPLACE.length(), std::to_string(k_p));
   res.replace(res.find(K_Q_REPLACE), K_Q_REPLACE.length(), std::to_string(k_q));
   res.replace(res.find(K_BIAS_REPLACE), K_BIAS_REPLACE.length(), std::to_string(k_bias));
@@ -229,45 +233,26 @@ void ForceController::onRobotStateChange(RobotState state)
    state_ = state;
 }
 
-void ForceController::position_cmd_cb(const geometry_msgs::Point::ConstPtr& msg)
-{
-  geometry_msgs::Pose *pose = new geometry_msgs::Pose();
-  pose->position.x = msg->x;
-  pose->position.y = msg->y;
-  pose->position.z = msg->z;
-  pose->orientation.x = default_orientation_[0];
-  pose->orientation.y = default_orientation_[1];
-  pose->orientation.z = default_orientation_[2];
-  pose->orientation.w = default_orientation_[3];
-
-  pose_cmd_cb(geometry_msgs::Pose::ConstPtr(pose));
-}
-
-void ForceController::pose_cmd_cb(const geometry_msgs::Pose::ConstPtr& msg)
+void ForceController::wrench_cmd_cb(const geometry_msgs::Wrench::ConstPtr& msg)
 {
   if (!running_)
     return;
 
-  double x = std::max(workspace_lower_limit_[0], std::min(msg->position.x, workspace_upper_limit_[0]));
-  double y = std::max(workspace_lower_limit_[1], std::min(msg->position.y, workspace_upper_limit_[1]));
-  double z = std::max(workspace_lower_limit_[2], std::min(msg->position.z, workspace_upper_limit_[2]));
-
   uint8_t buf[sizeof(uint32_t) * 7];
   uint8_t *idx = buf;
+  int32_t val;
 
-  int32_t val = htobe32(static_cast<int32_t>(x * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(msg->force.x * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(y * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(msg->force.y * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(z * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(msg->force.z * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(msg->orientation.x * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(msg->torque.x * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(msg->orientation.y * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(msg->torque.y * MULTIPLIER_));
   idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(msg->orientation.z * MULTIPLIER_));
-  idx += append(idx, val);
-  val = htobe32(static_cast<int32_t>(msg->orientation.w * MULTIPLIER_));
+  val = htobe32(static_cast<int32_t>(msg->torque.z * MULTIPLIER_));
   idx += append(idx, val);
 
   size_t written;

@@ -6,6 +6,7 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Empty.h"
 #include "geometry_msgs/Pose.h"
+#include "geometry_msgs/Wrench.h"
 #include "ur_modern_driver/log.h"
 #include "ur_modern_driver/ros/service_stopper.h"
 #include "ur_modern_driver/ur/commander.h"
@@ -20,7 +21,7 @@ private:
   ros::NodeHandle nh_;
   URCommander &commander_;
   URServer server_;
-  ros::Subscriber pose_cmd_sub_, position_cmd_sub_;
+  ros::Subscriber pose_cmd_sub_, position_cmd_sub_, wrench_cmd_sub_;
   RobotState state_;
   std::string program_;
 
@@ -36,6 +37,7 @@ public:
   ForceController(URCommander &commander, std::string &reverse_ip, int reverse_port);
   void pose_cmd_cb(const geometry_msgs::Pose::ConstPtr& msg);
   void position_cmd_cb(const geometry_msgs::Point::ConstPtr& msg);
+  void wrench_cmd_cb(const geometry_msgs::Wrench::ConstPtr& msg);
   void onRobotStateChange(RobotState state);
 
   bool start();
