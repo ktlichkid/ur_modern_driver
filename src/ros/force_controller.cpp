@@ -8,12 +8,11 @@ static const std::string F_MAX_REPLACE("{{F_MAX_REPLACE}}");
 static const std::string T_MAX_REPLACE("{{T_MAX_REPLACE}}");
 static const std::string K_P_REPLACE("{{K_P_REPLACE}}");
 static const std::string K_Q_REPLACE("{{K_Q_REPLACE}}");
-static const std::string K_BIAS_REPLACE("{{K_BIAS_REPLACE}}");
 static const std::string FORCE_MODE_REPLACE("{{FORCE_MODE_REPLACE}}");
 static const std::string SERVER_IP_REPLACE("{{SERVER_IP_REPLACE}}");
 static const std::string SERVER_PORT_REPLACE("{{SERVER_PORT_REPLACE}}");
 static const std::string FORCE_CONTROL_PROGRAM = R"(
-def force_mode_p_control_bias_corrected():
+def admittance_control():
 
   def clip(l, low, high):
     local i = 0
@@ -85,12 +84,10 @@ def force_mode_p_control_bias_corrected():
     return [q1[0]*q0[3]+q1[1]*q0[2]-q1[2]*q0[1]+q1[3]*q0[0], -q1[0]*q0[2]+q1[1]*q0[3]+q1[2]*q0[0]+q1[3]*q0[1], q1[0]*q0[1]-q1[1]*q0[0]+q1[2]*q0[3]+q1[3]*q0[2], -q1[0]*q0[0]-q1[1]*q0[1]-q1[2]*q0[2]+q1[3]*q0[3]]
   end
 
-  global bias = p[0,0,0,0,0,0]
   global cmd = [0,0,0,0,0,0]
   global multiplier = {{MULTIPIER_REPLACE}}
   global k_p = {{K_P_REPLACE}}
   global k_q = {{K_Q_REPLACE}}
-  global k_bias = {{K_BIAS_REPLACE}}
 
   global startup_pose = get_actual_tcp_pose()
   global targ_pos = [startup_pose[0],startup_pose[1],startup_pose[2]]
@@ -100,24 +97,12 @@ def force_mode_p_control_bias_corrected():
   zero_ftsensor()
   global connected = socket_open("{{SERVER_IP_REPLACE}}", {{SERVER_PORT_REPLACE}})
 
-  thread Thread_bias_correction():
-    while (True):
-      global bias = add(bias, multiply(subtract(get_tcp_force(), bias, 6), k_bias*0.01, 6), 6)
-      sleep(0.01)
-    end
-  end
-
-  threadId_Thread_bias_correction = run Thread_bias_correction()
-
   thread Thread_force_control():
     while (True):
       global pose = get_actual_tcp_pose()
-      global twist = get_actual_tcp_speed()
 
       global curr_pos = [pose[0], pose[1], pose[2]]
       global curr_rot = vect_2_quaternion([pose[3], pose[4], pose[5]])
-      global curr_vel = [twist[0], twist[1], twist[2]]
-      global curr_angvel = [twist[3], twist[4], twist[5]]
 
       global err_pos = [targ_pos[0]-curr_pos[0], targ_pos[1]-curr_pos[1], targ_pos[2]-curr_pos[2]]
       global err_rot = quaternion_multiply(targ_rot, quaternion_conjugate(curr_rot))
@@ -130,7 +115,6 @@ def force_mode_p_control_bias_corrected():
       global torque_cmd = multiply([err_rot[0], err_rot[1], err_rot[2]], k_q)
 
       global cmd = [force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]]
-      cmd = subtract(cmd, bias)
       cmd = add(cmd, targ_wrench)
       force_mode(p[0.0,0.0,0.0,0.0,0.0,0.0], [1,1,1,1,1,1], cmd, 2, {{FORCE_MODE_REPLACE}})
       sync()
@@ -158,14 +142,13 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
     , server_(reverse_port)
     , state_(RobotState::Error)
 {
-  double v_max, w_max, F_max, T_max, k_p, k_q, k_bias;
+  double v_max, w_max, F_max, T_max, k_p, k_q;
   ros::param::get("~max_velocity_linear", v_max);
   ros::param::get("~max_velocity_rotation", w_max);
   ros::param::get("~max_force", F_max);
   ros::param::get("~max_torque", T_max);
   ros::param::get("~linear_gain", k_p);
   ros::param::get("~rotational_gain", k_q);
-  ros::param::get("~bias_correction_gain", k_bias);
   ros::param::get("~default_orientation", default_orientation_);
   ros::param::get("~workspace_upper_limit", workspace_upper_limit_);
   ros::param::get("~workspace_lower_limit", workspace_lower_limit_);
@@ -182,7 +165,6 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   res.replace(res.find(MULTIPIER_REPLACE), MULTIPIER_REPLACE.length(), std::to_string(MULTIPLIER_));
   res.replace(res.find(K_P_REPLACE), K_P_REPLACE.length(), std::to_string(k_p));
   res.replace(res.find(K_Q_REPLACE), K_Q_REPLACE.length(), std::to_string(k_q));
-  res.replace(res.find(K_BIAS_REPLACE), K_BIAS_REPLACE.length(), std::to_string(k_bias));
   res.replace(res.find(FORCE_MODE_REPLACE), FORCE_MODE_REPLACE.length(), out.str());
   res.replace(res.find(SERVER_IP_REPLACE), SERVER_IP_REPLACE.length(), reverse_ip);
   res.replace(res.find(SERVER_PORT_REPLACE), SERVER_PORT_REPLACE.length(), std::to_string(reverse_port));

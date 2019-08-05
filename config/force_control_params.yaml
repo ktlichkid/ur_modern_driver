@@ -1,8 +1,9 @@
-max_velocity_linear: 0.3
-max_velocity_rotation: 1.0
+max_velocity_linear: 10.0
+max_velocity_rotation: 10.0
 max_force: 10
 max_torque: 2.0
 linear_gain: 500.0
 rotational_gain: 10.0
 default_orientation: [1.0, 0.0, 0.0, 0.0]
-bias_correction_gain: 0.0
+bias_gain: 0.001
+lpf_gain: 10.0

@@ -1,5 +1,6 @@
 #include "ur_modern_driver/ros/rt_publisher.h"
 
+
 bool RTPublisher::publishJoints(RTShared& packet, Time& t)
 {
   sensor_msgs::JointState joint_msg;
@@ -28,32 +29,45 @@ bool RTPublisher::publishWrench(RTShared& packet, Time& t)
 
   wrench_pub_.publish(wrench_msg);
 
-  if (!loadcell_bias.header.stamp.isZero())
-  {
-    double dt = (t - loadcell_bias.header.stamp).toSec();
-    loadcell_bias.wrench.force.x += (wrench_msg.wrench.force.x - loadcell_bias.wrench.force.x) * bias_correction_ * dt;
-    loadcell_bias.wrench.force.y += (wrench_msg.wrench.force.y - loadcell_bias.wrench.force.y) * bias_correction_ * dt;
-    loadcell_bias.wrench.force.z += (wrench_msg.wrench.force.z - loadcell_bias.wrench.force.z) * bias_correction_ * dt;
-    loadcell_bias.wrench.torque.x += (wrench_msg.wrench.torque.x - loadcell_bias.wrench.torque.x) * bias_correction_ * dt;
-    loadcell_bias.wrench.torque.y += (wrench_msg.wrench.torque.y - loadcell_bias.wrench.torque.y) * bias_correction_ * dt;
-    loadcell_bias.wrench.torque.z += (wrench_msg.wrench.torque.z - loadcell_bias.wrench.torque.z) * bias_correction_ * dt;
+  return true;
+}
+
+bool RTPublisher::publishBias(RTShared& packet, Time& t)
+{
+  if (loadcell_bias.header.stamp.isZero())
     loadcell_bias.header.stamp = t;
 
-    geometry_msgs::WrenchStamped wrench_bias_corrected_msg;
-    wrench_bias_corrected_msg.header.stamp = t;
-    wrench_bias_corrected_msg.wrench.force.x = packet.tcp_force[0] - loadcell_bias.wrench.force.x;
-    wrench_bias_corrected_msg.wrench.force.y = packet.tcp_force[1] - loadcell_bias.wrench.force.y;
-    wrench_bias_corrected_msg.wrench.force.z = packet.tcp_force[2] - loadcell_bias.wrench.force.z;
-    wrench_bias_corrected_msg.wrench.torque.x = packet.tcp_force[3] - loadcell_bias.wrench.force.x;
-    wrench_bias_corrected_msg.wrench.torque.y = packet.tcp_force[4] - loadcell_bias.wrench.force.y;
-    wrench_bias_corrected_msg.wrench.torque.z = packet.tcp_force[5] - loadcell_bias.wrench.force.z;
+  double mult = (t - loadcell_bias.header.stamp).toSec() * bias_gain_;
 
-    wrench_bias_corrected_pub_.publish(wrench_bias_corrected_msg);
-  }
-  else
-  {
-    loadcell_bias.header.stamp = t;
-  }
+  loadcell_bias.wrench.force.x += (packet.tcp_force[0] - loadcell_bias.wrench.force.x) * mult;
+  loadcell_bias.wrench.force.y += (packet.tcp_force[1] - loadcell_bias.wrench.force.y) * mult;
+  loadcell_bias.wrench.force.z += (packet.tcp_force[2] - loadcell_bias.wrench.force.z) * mult;
+  loadcell_bias.wrench.torque.x += (packet.tcp_force[3] - loadcell_bias.wrench.torque.x) * mult;
+  loadcell_bias.wrench.torque.y += (packet.tcp_force[4] - loadcell_bias.wrench.torque.y) * mult;
+  loadcell_bias.wrench.torque.z += (packet.tcp_force[5] - loadcell_bias.wrench.torque.z) * mult;
+  loadcell_bias.header.stamp = t;
+
+  bias_pub_.publish(loadcell_bias);
+
+  return true;
+}
+
+bool RTPublisher::publishWrenchLPF(RTShared& packet, Time& t)
+{
+  if (wrench_lpf.header.stamp.isZero())
+    wrench_lpf.header.stamp = t;
+
+  double mult = (t - wrench_lpf.header.stamp).toSec() * lpf_gain_;
+
+  wrench_lpf.wrench.force.x += (packet.tcp_force[0] - wrench_lpf.wrench.force.x) * mult;
+  wrench_lpf.wrench.force.y += (packet.tcp_force[1] - wrench_lpf.wrench.force.y) * mult;
+  wrench_lpf.wrench.force.z += (packet.tcp_force[2] - wrench_lpf.wrench.force.z) * mult;
+  wrench_lpf.wrench.torque.x += (packet.tcp_force[3] - wrench_lpf.wrench.torque.x) * mult;
+  wrench_lpf.wrench.torque.y += (packet.tcp_force[4] - wrench_lpf.wrench.torque.y) * mult;
+  wrench_lpf.wrench.torque.z += (packet.tcp_force[5] - wrench_lpf.wrench.torque.z) * mult;
+  wrench_lpf.header.stamp = t;
+
+  wrench_lpf_pub_.publish(wrench_lpf);
 
   return true;
 }
@@ -122,7 +136,11 @@ bool RTPublisher::publish(RTShared& packet)
   bool res = true;
   if (!temp_only_)
   {
-    res = publishJoints(packet, time) && publishWrench(packet, time) && publishTool(packet, time) &&
+    res = publishJoints(packet, time) &&
+          publishBias(packet, time)  &&
+          publishWrench(packet, time)  &&
+          publishWrenchLPF(packet, time) &&
+          publishTool(packet, time) &&
           publishTransform(packet, time);
   }
 

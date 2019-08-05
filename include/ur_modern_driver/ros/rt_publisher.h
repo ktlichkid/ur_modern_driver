@@ -24,19 +24,20 @@ class RTPublisher : public URRTPacketConsumer
 private:
   NodeHandle nh_;
   Publisher joint_pub_;
-  Publisher wrench_pub_;
-  Publisher wrench_bias_corrected_pub_;
+  Publisher wrench_pub_, bias_pub_, wrench_lpf_pub_;
   Publisher tool_vel_pub_;
   Publisher joint_temperature_pub_;
   TransformBroadcaster transform_broadcaster_;
   std::vector<std::string> joint_names_;
   std::string base_frame_;
   std::string tool_frame_;
-  geometry_msgs::WrenchStamped loadcell_bias;
+  geometry_msgs::WrenchStamped loadcell_bias, wrench_lpf;
   bool temp_only_;
-  double bias_correction_;
+  double bias_gain_, lpf_gain_;
 
   bool publishJoints(RTShared& packet, Time& t);
+  bool publishBias(RTShared& packet, Time& t);
+  bool publishWrenchLPF(RTShared& packet, Time& t);
   bool publishWrench(RTShared& packet, Time& t);
   bool publishTool(RTShared& packet, Time& t);
   bool publishTransform(RTShared& packet, Time& t);
@@ -45,16 +46,18 @@ private:
   bool publish(RTShared& packet);
 
 public:
-  RTPublisher(std::string& joint_prefix, std::string& base_frame, std::string& tool_frame, bool temp_only = false, double bias_correction = 0.0)
+  RTPublisher(std::string& joint_prefix, std::string& base_frame, std::string& tool_frame, bool temp_only=false, double bias_gain=0.0, double lpf_gain=0.0)
     : joint_pub_(nh_.advertise<sensor_msgs::JointState>("joint_states", 1))
     , wrench_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench", 1))
-    , wrench_bias_corrected_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench_bias_corrected", 1))
+    , bias_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("loadcell_bias", 1))
+    , wrench_lpf_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench_lpf", 1))
     , tool_vel_pub_(nh_.advertise<geometry_msgs::TwistStamped>("tool_velocity", 1))
     , joint_temperature_pub_(nh_.advertise<sensor_msgs::Temperature>("joint_temperature", 1))
     , base_frame_(base_frame)
     , tool_frame_(tool_frame)
     , temp_only_(temp_only)
-    , bias_correction_(bias_correction)
+    , bias_gain_(bias_gain)
+    , lpf_gain_(lpf_gain)
   {
     for (auto const& j : JOINTS)
     {
@@ -78,3 +81,5 @@ public:
   {
   }
 };
+
+
