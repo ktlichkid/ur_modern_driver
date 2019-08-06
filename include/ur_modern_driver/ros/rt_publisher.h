@@ -25,7 +25,7 @@ private:
   NodeHandle nh_;
   Publisher joint_pub_;
   Publisher wrench_pub_, bias_pub_, wrench_lpf_pub_;
-  Publisher tool_vel_pub_;
+  Publisher tool_pos_pub_, tool_vel_pub_;
   Publisher joint_temperature_pub_;
   TransformBroadcaster transform_broadcaster_;
   std::vector<std::string> joint_names_;
@@ -51,6 +51,7 @@ public:
     , wrench_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench", 1))
     , bias_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("loadcell_bias", 1))
     , wrench_lpf_pub_(nh_.advertise<geometry_msgs::WrenchStamped>("wrench_lpf", 1))
+    , tool_pos_pub_(nh_.advertise<geometry_msgs::PoseStamped>("tool_pose", 1))
     , tool_vel_pub_(nh_.advertise<geometry_msgs::TwistStamped>("tool_velocity", 1))
     , joint_temperature_pub_(nh_.advertise<sensor_msgs::Temperature>("joint_temperature", 1))
     , base_frame_(base_frame)
