@@ -1,3 +1,21 @@
+/*
+ * Copyright 2017, 2018 Simon Rasmussen (refactor)
+ *
+ * Copyright 2015, 2016 Thomas Timm Andersen (original version)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 #include <vector>
 #include "ur_modern_driver/bin_parser.h"
@@ -32,10 +50,10 @@ public:
     message_type type;
     bp.parse(packet_size);
     bp.parse(type);
-
     if (type != message_type::ROBOT_STATE)
     {
       // quietly ignore the intial version message
+
       if (type != message_type::ROBOT_MESSAGE)
       {
         LOG_WARN("Invalid state message type recieved: %u", static_cast<uint8_t>(type));
@@ -53,6 +71,7 @@ public:
         return false;
       }
       uint32_t sub_size = bp.peek<uint32_t>();
+
       if (!bp.checkSize(static_cast<size_t>(sub_size)))
       {
         LOG_WARN("Invalid sub-package size of %" PRIu32 " received!", sub_size);
@@ -97,3 +116,4 @@ typedef URStateParser<RobotModeData_V1_X, MasterBoardData_V1_X> URStateParser_V1
 typedef URStateParser<RobotModeData_V3_0__1, MasterBoardData_V3_0__1> URStateParser_V3_0__1;
 typedef URStateParser<RobotModeData_V3_2, MasterBoardData_V3_2> URStateParser_V3_2;
 typedef URStateParser<RobotModeData_V3_5, MasterBoardData_V3_2> URStateParser_V3_5;
+typedef URStateParser<RobotModeData_V3_5, MasterBoardData_V3_10__5_4> URStateParser_V3_10__5_4;

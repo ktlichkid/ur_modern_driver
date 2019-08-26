@@ -1,3 +1,21 @@
+/*
+ * Copyright 2017, 2018 Simon Rasmussen (refactor)
+ *
+ * Copyright 2015, 2016 Thomas Timm Andersen (original version)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <inttypes.h>
@@ -49,7 +67,7 @@ public:
 
   static const size_t SIZE = SharedRobotModeData::SIZE + sizeof(uint8_t) + sizeof(robot_mode_V1_X) + sizeof(double);
 
-  static_assert(RobotModeData_V1_X::SIZE == 24, "RobotModeData_V1_X has missmatched size");
+  static_assert(RobotModeData_V1_X::SIZE == 24, "RobotModeData_V1_X has mismatched size");
 };
 
 enum class robot_mode_V3_X : uint8_t
@@ -88,7 +106,7 @@ public:
   static const size_t SIZE = SharedRobotModeData::SIZE + sizeof(uint8_t) + sizeof(robot_mode_V3_X) +
                              sizeof(robot_control_mode_V3_X) + sizeof(double) + sizeof(double);
 
-  static_assert(RobotModeData_V3_0__1::SIZE == 33, "RobotModeData_V3_0__1 has missmatched size");
+  static_assert(RobotModeData_V3_0__1::SIZE == 33, "RobotModeData_V3_0__1 has mismatched size");
 };
 
 class RobotModeData_V3_2 : public RobotModeData_V3_0__1
@@ -101,7 +119,7 @@ public:
 
   static const size_t SIZE = RobotModeData_V3_0__1::SIZE + sizeof(double);
 
-  static_assert(RobotModeData_V3_2::SIZE == 41, "RobotModeData_V3_2 has missmatched size");
+  static_assert(RobotModeData_V3_2::SIZE == 41, "RobotModeData_V3_2 has mismatched size");
 };
 
 class RobotModeData_V3_5 : public RobotModeData_V3_2
@@ -114,5 +132,5 @@ public:
 
   static const size_t SIZE = RobotModeData_V3_2::SIZE + sizeof(unsigned char);
 
-  static_assert(RobotModeData_V3_5::SIZE == 42, "RobotModeData_V3_5 has missmatched size");
+  static_assert(RobotModeData_V3_5::SIZE == 42, "RobotModeData_V3_5 has mismatched size");
 };

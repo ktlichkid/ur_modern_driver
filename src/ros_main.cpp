@@ -9,11 +9,11 @@
 #include "ur_modern_driver/ros/action_server.h"
 #include "ur_modern_driver/ros/controller.h"
 #include "ur_modern_driver/ros/io_service.h"
+#include "ur_modern_driver/ros/lowbandwidth_trajectory_follower.h"
 #include "ur_modern_driver/ros/mb_publisher.h"
 #include "ur_modern_driver/ros/rt_publisher.h"
 #include "ur_modern_driver/ros/service_stopper.h"
 #include "ur_modern_driver/ros/trajectory_follower.h"
-#include "ur_modern_driver/ros/lowbandwidth_trajectory_follower.h"
 #include "ur_modern_driver/ros/urscript_handler.h"
 #include "ur_modern_driver/ros/force_controller.h"
 #include "ur_modern_driver/ur/commander.h"
@@ -25,6 +25,7 @@
 #include "ur_modern_driver/ur/state.h"
 
 static const std::string IP_ADDR_ARG("~robot_ip_address");
+static const std::string REVERSE_IP_ADDR_ARG("~reverse_ip_address");
 static const std::string REVERSE_PORT_ARG("~reverse_port");
 static const std::string ROS_CONTROL_ARG("~use_ros_control");
 static const std::string BIAS_GAIN_ARG("~bias_gain");
@@ -53,13 +54,14 @@ public:
   std::string base_frame;
   std::string tool_frame;
   std::string tcp_link;
+  std::string reverse_ip_address;
+  int32_t reverse_port;
   std::vector<std::string> joint_names;
   double max_acceleration;
   double max_velocity;
   double max_vel_change;
   double lpf_gain;
   double bias_gain;
-  int32_t reverse_port;
   bool use_ros_control;
   bool use_lowbandwidth_trajectory_follower;
   bool use_force_controller;
@@ -69,27 +71,30 @@ public:
 class IgnorePipelineStoppedNotifier : public INotifier
 {
 public:
-    void started(std::string name){
-        LOG_INFO("Starting pipeline %s", name.c_str());
-    }
-    void stopped(std::string name){
-        LOG_INFO("Stopping pipeline %s", name.c_str());
-    }
+  void started(std::string name)
+  {
+    LOG_INFO("Starting pipeline %s", name.c_str());
+  }
+  void stopped(std::string name)
+  {
+    LOG_INFO("Stopping pipeline %s", name.c_str());
+  }
 };
 
 class ShutdownOnPipelineStoppedNotifier : public INotifier
 {
 public:
-    void started(std::string name){
-        LOG_INFO("Starting pipeline %s", name.c_str());
-    }
-    void stopped(std::string name){
-        LOG_INFO("Shutting down on stopped pipeline %s", name.c_str());
-        ros::shutdown();
-        exit(1);
-    }
+  void started(std::string name)
+  {
+    LOG_INFO("Starting pipeline %s", name.c_str());
+  }
+  void stopped(std::string name)
+  {
+    LOG_INFO("Shutting down on stopped pipeline %s", name.c_str());
+    ros::shutdown();
+    exit(1);
+  }
 };
-
 
 bool parse_args(ProgArgs &args)
 {
@@ -98,6 +103,7 @@ bool parse_args(ProgArgs &args)
     LOG_ERROR("robot_ip_address parameter must be set!");
     return false;
   }
+  ros::param::param(REVERSE_IP_ADDR_ARG, args.reverse_ip_address, std::string());
   ros::param::param(REVERSE_PORT_ARG, args.reverse_port, int32_t(50001));
   ros::param::param(MAX_VEL_CHANGE_ARG, args.max_vel_change, 15.0);  // rad/s
   ros::param::param(MAX_VEL_CHANGE_ARG, args.max_velocity, 10.0);
@@ -131,11 +137,17 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  //Add prefix to joint names
-  std::transform (args.joint_names.begin(), args.joint_names.end(), args.joint_names.begin(),
-        [&args](std::string name){return args.prefix + name;});
+  // Add prefix to joint names
+  std::transform(args.joint_names.begin(), args.joint_names.end(), args.joint_names.begin(),
+                 [&args](std::string name) { return args.prefix + name; });
 
-  std::string local_ip(getLocalIPAccessibleFromHost(args.host));
+  std::string local_ip(args.reverse_ip_address);
+
+  // if no reverse IP address has been configured, try to detect one
+  if (local_ip.empty())
+  {
+    local_ip = getLocalIPAccessibleFromHost(args.host);
+  }
 
   URFactory factory(args.host);
   vector<Service *> services;
@@ -144,7 +156,7 @@ int main(int argc, char **argv)
   auto rt_parser = factory.getRTParser();
   URStream rt_stream(args.host, UR_RT_PORT);
   URProducer<RTPacket> rt_prod(rt_stream, *rt_parser);
-  RTPublisher rt_pub(args.prefix, args.base_frame, args.tool_frame, args.use_ros_control, args.bias_gain, args.lpf_gain);
+  RTPublisher rt_pub(args.prefix, args.base_frame, args.tool_frame, args.use_ros_control);
   auto rt_commander = factory.getCommander(rt_stream);
   vector<IConsumer<RTPacket> *> rt_vec{ &rt_pub };
 
@@ -156,9 +168,9 @@ int main(int argc, char **argv)
   if (args.use_ros_control)
   {
     LOG_INFO("ROS control enabled");
-    TrajectoryFollower *traj_follower = new TrajectoryFollower(
-        *rt_commander, local_ip, args.reverse_port, factory.isVersion3());
-    controller = new ROSController(*rt_commander, *traj_follower, args.joint_names, args.max_vel_change, args.tcp_link);
+    TrajectoryFollower *traj_follower =
+        new TrajectoryFollower(*rt_commander, local_ip, args.reverse_port, factory.isVersion3());
+    controller = new ROSController(*rt_commander, *traj_follower, args.joint_names, args.max_vel_change, args.base_frame);
     rt_vec.push_back(controller);
     services.push_back(controller);
   }
@@ -175,8 +187,8 @@ int main(int argc, char **argv)
     if (args.use_lowbandwidth_trajectory_follower)
     {
       LOG_INFO("Use low bandwidth trajectory follower");
-      traj_follower = new LowBandwidthTrajectoryFollower(*rt_commander,
-           local_ip, args.reverse_port,factory.isVersion3());
+      traj_follower =
+          new LowBandwidthTrajectoryFollower(*rt_commander, local_ip, args.reverse_port, factory.isVersion3());
     }
     else
     {
@@ -216,6 +228,8 @@ int main(int argc, char **argv)
   MultiConsumer<StatePacket> state_cons(state_vec);
   Pipeline<StatePacket> state_pl(state_prod, state_cons, "StatePacket", *notifier);
 
+  ros::Duration duration(3.0);
+  duration.sleep();
   LOG_INFO("Starting main loop");
 
   rt_pl.run();
