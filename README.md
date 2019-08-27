@@ -77,6 +77,17 @@ the second is margin that is added on top of the scaled one. You can increase ei
 executor more "tolerant" to execution delays. There is also another parameter:
 `trajectory_execution/execution_duration_monitoring`. You can set it to false to disable duration monitoring completely.
 
+## Ascent Improvements
+* **Force Controller** mode of execution. (only works when `use_force_controller` is set to `true`) In this mode, the robot position its end effector such that the force and torque measured by the loadcell at the wrist of the arm matches the commanded force and torque sent via the `/wrench_cmd` topic. Additionally, the arm will also attempt to return to a designated home pose which is currently taken as the pose of the arm when the force controller is started. The force controller can be tuned using a few different parameters all of which can be found in `config/force_control_params.yaml`:
+  * max_velocity_linear: end effector velocity limit in mm/s
+  * max_velocity_rotation: end effector angular velocity limit in rad/s
+  * max_force: the maximum force that the end effector will apply regardless of the commanded force
+  * max_torque: the maximum torque that the end effector will apply regardless of the commanded force
+  * linear_gain: the scale factor used to calculate the force required to return the end effector to the home position given a position error
+  * rotational_gain: the scale factor used to calculate the torque required to return the end effector to the home position given a rotational error
+  * bias_gain: the force controller estimates the bias of the loadcell by applying a very slow low-pass filter, this gain sets the cut-off frequency of that filter
+  * lpf_gain: the force controller also ecalculates a smoothed estimate of the current forces and torques measured by the loadcell, this gain sets the cut-off frequency of that filter
+
 ## Installation
 
 **As the driver communicates with the robot via ethernet and depends on reliable continous communication, it is not possible to reliably control a UR from a virtual machine.**
