@@ -73,7 +73,7 @@ the second is margin that is added on top of the scaled one. You can increase ei
 executor more "tolerant" to execution delays. There is also another parameter:
 `trajectory_execution/execution_duration_monitoring`. You can set it to false to disable duration monitoring completely.
 
-
+## Ascent Improvements
 * **Force Controller** mode of execution. (only works when `use_force_controller` is set to `true`) In this mode, the robot position its end effector such that the force and torque measured by the loadcell at the wrist of the arm matches the commanded force and torque sent via the `/wrench_cmd` topic. Additionally, the arm will also attempt to return to a designated home pose which is currently taken as the pose of the arm when the force controller is started. The force controller can be tuned using a few different parameters all of which can be found in `config/force_control_params.yaml`:
   * max_velocity_linear: end effector velocity limit in mm/s
   * max_velocity_rotation: end effector angular velocity limit in rad/s
