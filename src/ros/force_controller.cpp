@@ -149,7 +149,6 @@ ForceController::ForceController(URCommander &commander, std::string &reverse_ip
   ros::param::get("~max_torque", T_max);
   ros::param::get("~linear_gain", k_p);
   ros::param::get("~rotational_gain", k_q);
-  ros::param::get("~default_orientation", default_orientation_);
   ros::param::get("~workspace_upper_limit", workspace_upper_limit_);
   ros::param::get("~workspace_lower_limit", workspace_lower_limit_);
 
