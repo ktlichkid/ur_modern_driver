@@ -90,6 +90,7 @@ def admittance_control():
   global k_q = {{K_Q_REPLACE}}
 
   global startup_pose = get_actual_tcp_pose()
+  # startup_pose = p[0.550, -0.156, 0.028, 2.17, -2.22, 0.0607]
   global targ_pos = [startup_pose[0],startup_pose[1],startup_pose[2]]
   global targ_rot = vect_2_quaternion([startup_pose[3],startup_pose[4],startup_pose[5]])
   global targ_wrench = [0,0,0,0,0,0]
@@ -116,6 +117,7 @@ def admittance_control():
 
       global cmd = [force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]]
       cmd = add(cmd, targ_wrench)
+      # cmd = [0., 0., 3.0, 0., 0., 0.]
       force_mode(p[0.0,0.0,0.0,0.0,0.0,0.0], [1,1,1,1,1,1], cmd, 2, {{FORCE_MODE_REPLACE}})
       sync()
     end
