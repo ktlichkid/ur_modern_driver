@@ -117,7 +117,7 @@ def admittance_control():
 
       global cmd = [force_cmd[0], force_cmd[1], force_cmd[2], torque_cmd[0], torque_cmd[1], torque_cmd[2]]
       cmd = add(cmd, targ_wrench)
-      # cmd = [0., 0., 3.0, 0., 0., 0.]
+      cmd = clip(cmd, -10., 10.)
       force_mode(p[0.0,0.0,0.0,0.0,0.0,0.0], [1,1,1,1,1,1], cmd, 2, {{FORCE_MODE_REPLACE}})
       sync()
     end
